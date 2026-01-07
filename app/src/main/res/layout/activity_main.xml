@@ -38,7 +38,6 @@
                 android:gravity="top"
                 android:hint="What's happening?"
                 android:inputType="textMultiLine|textNoSuggestions"
-                android:longClickable="false"
                 android:scrollbars="vertical"
                 android:textSize="18sp"
                 android:textCursorDrawable="@null" />
@@ -61,18 +60,26 @@
         android:layout_marginTop="16dp">
 
         <ImageButton
-            android:id="@+id/btnDrafts"
+            android:id="@+id/btnNew"
+            android:layout_width="60dp"
+            android:layout_height="60dp"
+            android:src="@android:drawable/ic_menu_add"
+            android:contentDescription="New Note"/>
+
+        <ImageButton
+            android:id="@+id/btnSave"
             android:layout_width="60dp"
             android:layout_height="60dp"
             android:src="@android:drawable/ic_menu_save"
-            android:contentDescription="Drafts"
-            android:layout_marginEnd="8dp"/>
+            android:contentDescription="Save Draft"
+            android:layout_marginStart="8dp"/>
 
         <Button
             android:id="@+id/btnPost"
             android:layout_width="0dp"
             android:layout_weight="1"
             android:layout_height="60dp"
+            android:layout_marginStart="8dp"
             android:text="Post"
             android:textAllCaps="false"
             android:textSize="18sp"

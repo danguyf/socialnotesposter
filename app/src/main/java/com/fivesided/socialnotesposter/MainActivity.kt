@@ -12,6 +12,7 @@ import androidx.appcompat.app.AppCompatActivity
 import androidx.core.widget.addTextChangedListener
 import androidx.lifecycle.lifecycleScope
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 
@@ -42,7 +43,8 @@ class MainActivity : AppCompatActivity() {
         etNoteContent = findViewById(R.id.etNoteContent)
         btnPost = findViewById(R.id.btnPost)
         tvCharCount = findViewById(R.id.tvCharCount)
-        val btnSaveDraft = findViewById<ImageButton>(R.id.btnDrafts) // Now a save button
+        val btnNew = findViewById<ImageButton>(R.id.btnNew)
+        val btnSave = findViewById<ImageButton>(R.id.btnSave)
 
         // 1. Check Authentication Status
         if (!storage.hasCredentials()) {
@@ -66,11 +68,18 @@ class MainActivity : AppCompatActivity() {
             performPost(content)
         }
 
-        // 5. Save Draft Logic
-        btnSaveDraft.setOnClickListener {
+        // 5. New Note Logic
+        btnNew.setOnClickListener {
+            etNoteContent.text.clear()
+            currentDraft = null
+            Toast.makeText(this, "New note started.", Toast.LENGTH_SHORT).show()
+        }
+
+        // 6. Save/Update Draft Logic
+        btnSave.setOnClickListener {
             val content = etNoteContent.text.toString()
             if (content.isNotEmpty()) {
-                saveDraft(content)
+                saveOrUpdateDraft(content)
             } else {
                 Toast.makeText(this, "Nothing to save.", Toast.LENGTH_SHORT).show()
             }
@@ -121,10 +130,8 @@ class MainActivity : AppCompatActivity() {
                     val originalDraft = currentDraft
                     if (originalDraft != null) {
                         if (content == originalDraft.content) {
-                            // Auto-delete if content is identical
                             db.draftDao().delete(originalDraft)
                         } else {
-                            // Ask to delete if content was edited
                             withContext(Dispatchers.Main) {
                                 AlertDialog.Builder(this@MainActivity)
                                     .setTitle("Delete Original Draft?")
@@ -138,7 +145,6 @@ class MainActivity : AppCompatActivity() {
                         }
                     }
 
-                    // Clear UI and state
                     withContext(Dispatchers.Main) {
                         etNoteContent.text.clear()
                         currentDraft = null
@@ -161,11 +167,30 @@ class MainActivity : AppCompatActivity() {
         }
     }
 
-    private fun saveDraft(content: String) {
+    private fun saveOrUpdateDraft(content: String) {
         lifecycleScope.launch {
-            db.draftDao().insert(NoteDraft(content = content))
-            withContext(Dispatchers.Main) {
-                Toast.makeText(this@MainActivity, "Draft saved.", Toast.LENGTH_SHORT).show()
+            val draft = currentDraft
+            if (draft != null) {
+                // Update existing draft
+                val updatedDraft = draft.copy(content = content)
+                db.draftDao().update(updatedDraft)
+                currentDraft = updatedDraft
+                withContext(Dispatchers.Main) {
+                    Toast.makeText(this@MainActivity, "Draft updated.", Toast.LENGTH_SHORT).show()
+                }
+            } else {
+                // Save as new draft
+                val newDraft = NoteDraft(content = content)
+                db.draftDao().insert(newDraft)
+                // To allow for further edits to be saved as updates, we set the new draft as current
+                // We need to retrieve it to get its auto-generated ID
+                val draftsList = db.draftDao().getAllDrafts().first()
+                if (draftsList.isNotEmpty()) {
+                    currentDraft = draftsList.first()
+                }
+                withContext(Dispatchers.Main) {
+                    Toast.makeText(this@MainActivity, "Draft saved.", Toast.LENGTH_SHORT).show()
+                }
             }
         }
     }
@@ -193,7 +218,6 @@ class MainActivity : AppCompatActivity() {
                     userInput.text.toString().trim(),
                     passInput.text.toString().trim()
                 )
-                // Refresh API Client with new base URL
                 ApiClient.init(this)
                 Toast.makeText(this, "Setup complete!", Toast.LENGTH_SHORT).show()
             }
