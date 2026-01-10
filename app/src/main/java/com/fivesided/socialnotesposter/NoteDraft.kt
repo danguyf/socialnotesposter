@@ -6,5 +6,7 @@ import androidx.room.PrimaryKey
 @Entity(tableName = "drafts")
 data class NoteDraft(
     @PrimaryKey(autoGenerate = true) val id: Int = 0,
-    val content: String
+    val wpId: Int? = null,
+    val content: String,
+    val lastModified: Long = System.currentTimeMillis()
 )

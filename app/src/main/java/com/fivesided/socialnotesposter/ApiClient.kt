@@ -1,12 +1,13 @@
 package com.fivesided.socialnotesposter
 
 import android.content.Context
+import com.google.gson.GsonBuilder
 import okhttp3.OkHttpClient
 import retrofit2.Response
 import retrofit2.Retrofit
 import retrofit2.converter.gson.GsonConverterFactory
-import retrofit2.http.Body
-import retrofit2.http.POST
+import retrofit2.http.*
+import java.util.Date
 
 object ApiClient {
 
@@ -19,8 +20,6 @@ object ApiClient {
         authStorage = AuthStorage(context)
         val (blogUrl, _, _) = authStorage.getCredentials()
 
-        // If the URL is blank, use a valid placeholder to prevent a crash.
-        // The app logic will still force the user to enter a real URL later.
         val baseUrl = if (blogUrl.isNullOrBlank()) {
             "https://placeholder.com/"
         } else {
@@ -36,10 +35,14 @@ object ApiClient {
             }
             .build()
 
+        val gson = GsonBuilder()
+            .setDateFormat("yyyy-MM-dd'T'HH:mm:ss")
+            .create()
+
         retrofit = Retrofit.Builder()
             .baseUrl(baseUrl)
             .client(client)
-            .addConverterFactory(GsonConverterFactory.create())
+            .addConverterFactory(GsonConverterFactory.create(gson))
             .build()
 
         service = retrofit.create(WordPressApiService::class.java)
@@ -48,7 +51,31 @@ object ApiClient {
 
 interface WordPressApiService {
     @POST("wp-json/wp/v2/jetpack-social-note")
-    suspend fun postNote(@Body note: SocialNotePost): Response<Unit>
+    suspend fun postNote(@Body note: SocialNoteRequest): Response<SocialNoteResponse>
+
+    @GET("wp-json/wp/v2/jetpack-social-note")
+    suspend fun getDrafts(@Query("status") status: String = "draft"): Response<List<SocialNoteResponse>>
+
+    @POST("wp-json/wp/v2/jetpack-social-note/{id}")
+    suspend fun updateNote(@Path("id") id: Int, @Body note: SocialNoteRequest): Response<SocialNoteResponse>
+
+    @DELETE("wp-json/wp/v2/jetpack-social-note/{id}")
+    suspend fun deleteNote(@Path("id") id: Int, @Query("force") force: Boolean = true): Response<Unit>
 }
 
-data class SocialNotePost(val content: String, val status: String)
+data class SocialNoteRequest(
+    val content: String,
+    val status: String
+)
+
+data class SocialNoteResponse(
+    val id: Int,
+    val content: Content,
+    val status: String,
+    val modified_gmt: Date
+)
+
+data class Content(
+    val raw: String?,
+    val rendered: String
+)

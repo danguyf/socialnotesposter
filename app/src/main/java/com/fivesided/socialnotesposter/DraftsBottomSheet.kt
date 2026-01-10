@@ -55,16 +55,10 @@ class DraftsBottomSheet(private val onDraftSelected: (NoteDraft) -> Unit) : Bott
             .setTitle("Delete Draft")
             .setMessage("Are you sure you want to delete this draft?")
             .setPositiveButton("Delete") { _, _ ->
-                deleteDraft(draft)
+                (activity as? MainActivity)?.deleteDraftCompletely(draft)
+                loadDrafts() // Refresh the list
             }
             .setNegativeButton("Cancel", null)
             .show()
-    }
-
-    private fun deleteDraft(draft: NoteDraft) {
-        lifecycleScope.launch {
-            db.draftDao().delete(draft)
-            loadDrafts() // Refresh the list
-        }
     }
 }
