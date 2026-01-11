@@ -1,17 +1,15 @@
 package com.fivesided.socialnotesposter
 
 import android.content.Intent
-import android.os.Build
 import android.os.Bundle
-import android.text.Html
 import android.util.Log
 import android.view.LayoutInflater
 import android.view.Menu
 import android.view.MenuItem
 import android.widget.*
-import androidx.annotation.RequiresApi
 import androidx.appcompat.app.AlertDialog
 import androidx.appcompat.app.AppCompatActivity
+import androidx.core.text.HtmlCompat
 import androidx.core.widget.addTextChangedListener
 import androidx.lifecycle.lifecycleScope
 import kotlinx.coroutines.Dispatchers
@@ -119,7 +117,7 @@ class MainActivity : AppCompatActivity() {
     }
 
     private fun stripHtml(html: String): String {
-        return Html.fromHtml(html, Html.FROM_HTML_MODE_COMPACT).toString().trim()
+        return HtmlCompat.fromHtml(html, HtmlCompat.FROM_HTML_MODE_COMPACT).toString().trim()
     }
 
     private fun syncDrafts() {
@@ -129,7 +127,7 @@ class MainActivity : AppCompatActivity() {
             var deleted = 0
 
             try {
-                // Fetch drafts from WordPress using status=draft and context=edit
+                // Fetch drafts from WordPress with cache buster to force fresh results
                 val response = ApiClient.service.getDrafts(cb = System.currentTimeMillis())
                 if (response.isSuccessful) {
                     val wpDrafts = response.body() ?: emptyList()
@@ -139,7 +137,7 @@ class MainActivity : AppCompatActivity() {
                     // Phase 1: Handle Deletions
                     localDraftsAtStart.forEach { localDraft ->
                         if (localDraft.wpId != null && !wpIdsInResponse.contains(localDraft.wpId)) {
-                            // Verify truly gone with context=edit
+                            // Verify actually gone with correct status/context
                             val checkResponse = ApiClient.service.getNote(localDraft.wpId)
                             if (checkResponse.code() == 404) {
                                 db.draftDao().delete(localDraft)
@@ -148,7 +146,7 @@ class MainActivity : AppCompatActivity() {
                         }
                     }
 
-                    // Phase 2: WP -> Local Sync (Update or Create)
+                    // Phase 2: WP -> Local Sync
                     val localDraftsAfterDelete = db.draftDao().getAllDrafts().first()
                     wpDrafts.forEach { wpDraft ->
                         val wpContent = stripHtml(wpDraft.content.raw ?: wpDraft.content.rendered)
@@ -156,7 +154,6 @@ class MainActivity : AppCompatActivity() {
                         val localMatch = localDraftsAfterDelete.find { it.wpId == wpDraft.id }
 
                         if (localMatch == null) {
-                            // De-duplicate locally by content
                             val contentMatch = localDraftsAfterDelete.find { it.wpId == null && it.content == wpContent }
                             if (contentMatch != null) {
                                 db.draftDao().update(contentMatch.copy(wpId = wpDraft.id, lastModified = wpModified))
@@ -169,7 +166,7 @@ class MainActivity : AppCompatActivity() {
                         }
                     }
 
-                    // Phase 3: Sync Local -> WP (Upload new ones)
+                    // Phase 3: Local -> WP Sync
                     val finalLocalDrafts = db.draftDao().getAllDrafts().first()
                     finalLocalDrafts.forEach { localDraft ->
                         if (localDraft.wpId == null) {
@@ -214,8 +211,6 @@ class MainActivity : AppCompatActivity() {
                 }
 
                 if (response.isSuccessful) {
-                    Log.d(TAG, "Post successful!")
-
                     val originalDraft = currentDraft
                     if (originalDraft != null) {
                         if (content == originalDraft.content) {
@@ -240,7 +235,6 @@ class MainActivity : AppCompatActivity() {
                         Toast.makeText(this@MainActivity, "Published!", Toast.LENGTH_SHORT).show()
                     }
                 } else {
-                    Log.w(TAG, "Post failed with code: ${response.code()}")
                     saveAsDraftOnError(content, "Server error (${response.code()}). Saved to drafts.")
                 }
             } catch (e: Exception) {
