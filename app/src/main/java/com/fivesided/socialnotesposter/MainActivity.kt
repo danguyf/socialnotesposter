@@ -1,6 +1,7 @@
 package com.fivesided.socialnotesposter
 
 import android.content.Intent
+import android.os.Build
 import android.os.Bundle
 import android.text.Html
 import android.util.Log
@@ -8,6 +9,7 @@ import android.view.LayoutInflater
 import android.view.Menu
 import android.view.MenuItem
 import android.widget.*
+import androidx.annotation.RequiresApi
 import androidx.appcompat.app.AlertDialog
 import androidx.appcompat.app.AppCompatActivity
 import androidx.core.widget.addTextChangedListener
@@ -16,7 +18,6 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
-import java.util.*
 
 class MainActivity : AppCompatActivity() {
 
@@ -123,22 +124,31 @@ class MainActivity : AppCompatActivity() {
 
     private fun syncDrafts() {
         lifecycleScope.launch(Dispatchers.IO) {
+            var downloaded = 0
+            var uploaded = 0
+            var deleted = 0
+
             try {
-                val response = ApiClient.service.getDrafts()
+                // Fetch drafts from WordPress using status=draft and context=edit
+                val response = ApiClient.service.getDrafts(cb = System.currentTimeMillis())
                 if (response.isSuccessful) {
                     val wpDrafts = response.body() ?: emptyList()
                     val localDraftsAtStart = db.draftDao().getAllDrafts().first()
                     val wpIdsInResponse = wpDrafts.map { it.id }.toSet()
 
-                    // 1. Delete local drafts whose wpId is no longer on WP
+                    // Phase 1: Handle Deletions
                     localDraftsAtStart.forEach { localDraft ->
                         if (localDraft.wpId != null && !wpIdsInResponse.contains(localDraft.wpId)) {
-                            Log.d(TAG, "Deleting orphaned local draft: ${localDraft.wpId}")
-                            db.draftDao().delete(localDraft)
+                            // Verify truly gone with context=edit
+                            val checkResponse = ApiClient.service.getNote(localDraft.wpId)
+                            if (checkResponse.code() == 404) {
+                                db.draftDao().delete(localDraft)
+                                deleted++
+                            }
                         }
                     }
 
-                    // 2. Sync WP -> Local (Update or Create)
+                    // Phase 2: WP -> Local Sync (Update or Create)
                     val localDraftsAfterDelete = db.draftDao().getAllDrafts().first()
                     wpDrafts.forEach { wpDraft ->
                         val wpContent = stripHtml(wpDraft.content.raw ?: wpDraft.content.rendered)
@@ -146,40 +156,40 @@ class MainActivity : AppCompatActivity() {
                         val localMatch = localDraftsAfterDelete.find { it.wpId == wpDraft.id }
 
                         if (localMatch == null) {
-                            // De-duplicate: check if same content exists locally without wpId
+                            // De-duplicate locally by content
                             val contentMatch = localDraftsAfterDelete.find { it.wpId == null && it.content == wpContent }
                             if (contentMatch != null) {
                                 db.draftDao().update(contentMatch.copy(wpId = wpDraft.id, lastModified = wpModified))
                             } else {
                                 db.draftDao().insert(NoteDraft(wpId = wpDraft.id, content = wpContent, lastModified = wpModified))
+                                downloaded++
                             }
                         } else if (wpModified > localMatch.lastModified) {
                             db.draftDao().update(localMatch.copy(content = wpContent, lastModified = wpModified))
                         }
                     }
 
-                    // 3. Sync Local -> WP (Upload new ones)
+                    // Phase 3: Sync Local -> WP (Upload new ones)
                     val finalLocalDrafts = db.draftDao().getAllDrafts().first()
                     finalLocalDrafts.forEach { localDraft ->
                         if (localDraft.wpId == null) {
-                            Log.d(TAG, "Uploading new local draft to WP...")
                             val createResponse = ApiClient.service.postNote(SocialNoteRequest(localDraft.content, "draft"))
                             if (createResponse.isSuccessful) {
                                 createResponse.body()?.let {
                                     db.draftDao().update(localDraft.copy(wpId = it.id, lastModified = it.modified_gmt.time))
+                                    uploaded++
                                 }
                             }
                         } else {
                             val wpMatch = wpDrafts.find { it.id == localDraft.wpId }
                             if (wpMatch != null && localDraft.lastModified > (wpMatch.modified_gmt.time + 1000)) {
-                                Log.d(TAG, "Updating existing WP draft: ${localDraft.wpId}")
                                 ApiClient.service.updateNote(localDraft.wpId, SocialNoteRequest(localDraft.content, "draft"))
                             }
                         }
                     }
                     
                     withContext(Dispatchers.Main) {
-                        Log.d(TAG, "Sync complete")
+                        Toast.makeText(this@MainActivity, "Sync: $downloaded down, $uploaded up, $deleted deleted", Toast.LENGTH_LONG).show()
                     }
                 }
             } catch (e: Exception) {
@@ -195,7 +205,6 @@ class MainActivity : AppCompatActivity() {
 
         lifecycleScope.launch {
             try {
-                Log.d(TAG, "Coroutine started, making network call...")
                 val post = SocialNoteRequest(content, "publish")
                 
                 val response = if (currentDraft?.wpId != null) {
@@ -235,10 +244,8 @@ class MainActivity : AppCompatActivity() {
                     saveAsDraftOnError(content, "Server error (${response.code()}). Saved to drafts.")
                 }
             } catch (e: Exception) {
-                Log.e(TAG, "Exception during post", e)
                 saveAsDraftOnError(content, "Offline. Saved to drafts.")
             } finally {
-                Log.d(TAG, "Finally block executed.")
                 withContext(Dispatchers.Main) {
                     btnPost.isEnabled = true
                     btnPost.text = "Post"
@@ -302,7 +309,7 @@ class MainActivity : AppCompatActivity() {
                         if (res.isSuccessful) {
                             res.body()?.let {
                                 db.draftDao().update(savedDraft.copy(wpId = it.id, lastModified = it.modified_gmt.time))
-                                val updatedFromDb = db.draftDao().getAllDrafts().first().firstOrNull { d -> d.id == savedDraft.id }
+                                val updatedFromDb = db.draftDao().getAllDrafts().first().find { d -> d.id == savedDraft.id }
                                 if (updatedFromDb != null) {
                                     currentDraft = updatedFromDb
                                 }
