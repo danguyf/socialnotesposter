@@ -37,7 +37,7 @@
                 android:background="@android:color/transparent"
                 android:gravity="top"
                 android:hint="What's happening?"
-                android:inputType="textMultiLine|textNoSuggestions"
+                android:inputType="textMultiLine|textCapSentences"
                 android:scrollbars="vertical"
                 android:textSize="18sp"
                 android:textCursorDrawable="@null" />
