@@ -211,22 +211,9 @@ class MainActivity : AppCompatActivity() {
                 }
 
                 if (response.isSuccessful) {
-                    val originalDraft = currentDraft
-                    if (originalDraft != null) {
-                        if (content == originalDraft.content) {
-                            deleteDraftCompletely(originalDraft)
-                        } else {
-                            withContext(Dispatchers.Main) {
-                                AlertDialog.Builder(this@MainActivity)
-                                    .setTitle("Delete Original Draft?")
-                                    .setMessage("You posted an edited version of a draft. Do you want to delete the original?")
-                                    .setPositiveButton("Delete") { _, _ ->
-                                        deleteDraftCompletely(originalDraft)
-                                    }
-                                    .setNegativeButton("Keep", null)
-                                    .show()
-                            }
-                        }
+                    // Success! Delete the local draft record if one exists.
+                    currentDraft?.let {
+                        db.draftDao().delete(it)
                     }
 
                     withContext(Dispatchers.Main) {
