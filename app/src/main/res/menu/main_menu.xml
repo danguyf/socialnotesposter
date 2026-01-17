@@ -4,6 +4,6 @@
     <item
         android:id="@+id/action_view_drafts"
         android:title="Drafts"
-        android:icon="@android:drawable/ic_menu_agenda"
+        android:icon="@drawable/ic_web_stories"
         app:showAsAction="ifRoom" />
 </menu>
