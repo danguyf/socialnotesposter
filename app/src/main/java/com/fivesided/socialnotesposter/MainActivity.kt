@@ -60,7 +60,7 @@ class MainActivity : AppCompatActivity() {
         // 3. Live Character Counter
         etNoteContent.addTextChangedListener {
             val count = it?.length ?: 0
-            tvCharCount.text = getString(R.string.char_count_format, count, 266)
+            tvCharCount.text = getString(R.string.char_count_format, count, 280)
             btnPost.isEnabled = count > 0
         }
 

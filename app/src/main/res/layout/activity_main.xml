@@ -11,16 +11,7 @@
         android:layout_height="match_parent"
         android:orientation="vertical"
         android:padding="16dp"
-        android:background="#F5F5F5">
-
-        <TextView
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:text="New Social Note"
-            android:textSize="24sp"
-            android:textStyle="bold"
-            android:textColor="#333333"
-            android:layout_marginBottom="16dp" />
+        android:background="@color/background_color">
 
         <com.google.android.material.card.MaterialCardView
             android:layout_width="match_parent"
@@ -53,7 +44,7 @@
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
                     android:layout_gravity="end"
-                    android:text="0 / 266"
+                    android:text="0 / 280"
                     android:textColor="#888888"
                     android:textSize="12sp" />
             </LinearLayout>
