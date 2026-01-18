@@ -1,9 +1,9 @@
 package com.fivesided.socialnotesposter
 
 import android.content.Context
+import android.util.Base64
 import androidx.security.crypto.EncryptedSharedPreferences
 import androidx.security.crypto.MasterKey
-import java.util.Base64
 
 class AuthStorage(context: Context) {
 
@@ -42,7 +42,7 @@ class AuthStorage(context: Context) {
     fun getAuthHeader(): String {
         val (_, username, appPass) = getCredentials()
         val credentials = "$username:$appPass"
-        return "Basic " + Base64.getEncoder().encodeToString(credentials.toByteArray())
+        return "Basic " + Base64.encodeToString(credentials.toByteArray(), Base64.NO_WRAP)
     }
 
     fun clearCredentials() {

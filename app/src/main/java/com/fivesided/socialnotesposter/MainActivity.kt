@@ -60,7 +60,7 @@ class MainActivity : AppCompatActivity() {
         // 3. Live Character Counter
         etNoteContent.addTextChangedListener {
             val count = it?.length ?: 0
-            tvCharCount.text = "$count / 266"
+            tvCharCount.text = getString(R.string.char_count_format, count, 266)
             btnPost.isEnabled = count > 0
         }
 
@@ -75,7 +75,7 @@ class MainActivity : AppCompatActivity() {
         btnNew.setOnClickListener {
             etNoteContent.text.clear()
             currentDraft = null
-            Toast.makeText(this, "New note started.", Toast.LENGTH_SHORT).show()
+            Toast.makeText(this, R.string.new_note_started, Toast.LENGTH_SHORT).show()
         }
 
         // 6. Save/Update Draft Logic
@@ -84,7 +84,7 @@ class MainActivity : AppCompatActivity() {
             if (content.isNotEmpty()) {
                 saveOrUpdateDraft(content)
             } else {
-                Toast.makeText(this, "Nothing to save.", Toast.LENGTH_SHORT).show()
+                Toast.makeText(this, R.string.nothing_to_save, Toast.LENGTH_SHORT).show()
             }
         }
     }
@@ -186,7 +186,7 @@ class MainActivity : AppCompatActivity() {
                     }
                     
                     withContext(Dispatchers.Main) {
-                        Toast.makeText(this@MainActivity, "Sync: $downloaded down, $uploaded up, $deleted deleted", Toast.LENGTH_LONG).show()
+                        Toast.makeText(this@MainActivity, getString(R.string.sync_status, downloaded, uploaded, deleted), Toast.LENGTH_LONG).show()
                     }
                 }
             } catch (e: Exception) {
@@ -198,7 +198,7 @@ class MainActivity : AppCompatActivity() {
     private fun performPost(content: String) {
         Log.d(TAG, "performPost called with content: $content")
         btnPost.isEnabled = false
-        btnPost.text = "Posting..."
+        btnPost.setText(R.string.posting_status)
 
         lifecycleScope.launch {
             try {
@@ -219,17 +219,17 @@ class MainActivity : AppCompatActivity() {
                     withContext(Dispatchers.Main) {
                         etNoteContent.text.clear()
                         currentDraft = null
-                        Toast.makeText(this@MainActivity, "Published!", Toast.LENGTH_SHORT).show()
+                        Toast.makeText(this@MainActivity, R.string.published_toast, Toast.LENGTH_SHORT).show()
                     }
                 } else {
-                    saveAsDraftOnError(content, "Server error (${response.code()}). Saved to drafts.")
+                    saveAsDraftOnError(content, getString(R.string.server_error_saved, response.code()))
                 }
             } catch (e: Exception) {
-                saveAsDraftOnError(content, "Offline. Saved to drafts.")
+                saveAsDraftOnError(content, getString(R.string.offline_saved))
             } finally {
                 withContext(Dispatchers.Main) {
                     btnPost.isEnabled = true
-                    btnPost.text = "Post"
+                    btnPost.setText(R.string.post_button)
                 }
             }
         }
@@ -275,7 +275,7 @@ class MainActivity : AppCompatActivity() {
                 }
                 
                 withContext(Dispatchers.Main) {
-                    Toast.makeText(this@MainActivity, "Draft updated.", Toast.LENGTH_SHORT).show()
+                    Toast.makeText(this@MainActivity, R.string.draft_updated, Toast.LENGTH_SHORT).show()
                 }
             } else {
                 val newDraft = NoteDraft(content = content, lastModified = now)
@@ -302,7 +302,7 @@ class MainActivity : AppCompatActivity() {
                 }
 
                 withContext(Dispatchers.Main) {
-                    Toast.makeText(this@MainActivity, "Draft saved.", Toast.LENGTH_SHORT).show()
+                    Toast.makeText(this@MainActivity, R.string.draft_saved, Toast.LENGTH_SHORT).show()
                 }
             }
         }
@@ -324,17 +324,17 @@ class MainActivity : AppCompatActivity() {
         val passInput = dialogView.findViewById<EditText>(R.id.etAppPassword)
 
         AlertDialog.Builder(this)
-            .setTitle("WordPress Setup")
+            .setTitle(R.string.wordpress_setup_title)
             .setView(dialogView)
             .setCancelable(false)
-            .setPositiveButton("Save") { _, _ ->
+            .setPositiveButton(R.string.save_button) { _, _ ->
                 storage.saveCredentials(
                     urlInput.text.toString().trim(),
                     userInput.text.toString().trim(),
                     passInput.text.toString().trim()
                 )
                 ApiClient.init(this)
-                Toast.makeText(this, "Setup complete!", Toast.LENGTH_SHORT).show()
+                Toast.makeText(this, R.string.setup_complete, Toast.LENGTH_SHORT).show()
                 syncDrafts()
             }
             .show()
