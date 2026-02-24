@@ -116,6 +116,10 @@ class MainActivity : AppCompatActivity() {
                 }.show(supportFragmentManager, "drafts")
                 true
             }
+            R.id.action_help -> {
+                showHelpDialog()
+                true
+            }
             else -> super.onOptionsItemSelected(item)
         }
     }
@@ -351,5 +355,32 @@ class MainActivity : AppCompatActivity() {
                 syncDrafts()
             }
             .show()
+    }
+
+    private fun showHelpDialog() {
+        val dialogView = LayoutInflater.from(this).inflate(R.layout.dialog_help, null)
+        val tvAppVersion = dialogView.findViewById<TextView>(R.id.tvAppVersion)
+        val btnCloseHelp = dialogView.findViewById<ImageButton>(R.id.btnCloseHelp)
+
+        try {
+            val pInfo = packageManager.getPackageInfo(packageName, 0)
+            val version = pInfo.versionName
+            tvAppVersion.text = getString(R.string.version_format, version)
+        } catch (e: Exception) {
+            tvAppVersion.text = getString(R.string.version_unknown)
+        }
+
+        val dialog = AlertDialog.Builder(this)
+            .setView(dialogView)
+            .create()
+
+        // Make background transparent so card radius shows correctly
+        dialog.window?.setBackgroundDrawableResource(android.R.color.transparent)
+
+        btnCloseHelp.setOnClickListener {
+            dialog.dismiss()
+        }
+
+        dialog.show()
     }
 }

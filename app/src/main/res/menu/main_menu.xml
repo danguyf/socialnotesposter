@@ -6,4 +6,9 @@
         android:title="Drafts"
         android:icon="@drawable/baseline_edit_note_24"
         app:showAsAction="ifRoom" />
+    <item
+        android:id="@+id/action_help"
+        android:title="Help"
+        android:icon="@drawable/ic_help_outline_24"
+        app:showAsAction="always" />
 </menu>

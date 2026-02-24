@@ -18,4 +18,12 @@
     <string name="delete_draft_message">Are you sure you want to delete this draft?</string>
     <string name="delete_button">Delete</string>
     <string name="cancel_button">Cancel</string>
+    <string name="help_title">Help</string>
+    <string name="app_repo_url">https://github.com/danguyf/socialnotesposter</string>
+    <string name="icon_new_desc">New: Start a new note</string>
+    <string name="icon_save_desc">Save: Save the current note as a draft</string>
+    <string name="icon_drafts_desc">Drafts: View and manage saved drafts</string>
+    <string name="long_press_delete_hint">(Long-press a draft to delete.)</string>
+    <string name="version_format">Version: %s</string>
+    <string name="version_unknown">Version unknown</string>
 </resources>
