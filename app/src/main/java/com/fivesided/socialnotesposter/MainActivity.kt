@@ -60,7 +60,20 @@ class MainActivity : AppCompatActivity() {
         // 3. Live Character Counter
         etNoteContent.addTextChangedListener {
             val count = it?.length ?: 0
-            tvCharCount.text = getString(R.string.char_count_format, count, 280)
+            var limit = 280
+            var color = 0xFF888888.toInt() // default gray
+            if (count > 280 && count <= 300) {
+                limit = 300
+                color = 0xFFFFC107.toInt() // darker golden
+            } else if (count > 300 && count <= 500) {
+                limit = 500
+                color = 0xFFFF9800.toInt() // orange
+            } else if (count > 500) {
+                limit = 500
+                color = 0xFFF44336.toInt() // red
+            }
+            tvCharCount.text = getString(R.string.char_count_format, count, limit)
+            tvCharCount.setTextColor(color)
             btnPost.isEnabled = count > 0
         }
 
