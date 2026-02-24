@@ -9,5 +9,4 @@
 
     <color name="background_color">#F5F5F5</color>
     <color name="app_name_text_color">@color/indigo_700</color>
-    <color name="icon_color">@color/indigo_700</color>
 </resources>
