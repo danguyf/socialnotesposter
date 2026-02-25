@@ -22,7 +22,7 @@ The app does not phone home.
 
 ## 4. Third-Party Services
 Google Play may collect crash reports if you choose to send them via your device.
-I'm not entirely clear on how that works, honest, I haven't published an app to the Play Store in a decade. 
+I'm not entirely clear on how that works, honestly, I haven't published an app to the Play Store in a decade. 
 If you send crash reports I might look at them. I assume Google anonymizes them.
 
 Since the app connects to your own WordPress instance, your data is subject to:
