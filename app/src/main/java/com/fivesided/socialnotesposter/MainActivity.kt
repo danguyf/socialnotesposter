@@ -6,6 +6,7 @@ import android.util.Log
 import android.view.LayoutInflater
 import android.view.Menu
 import android.view.MenuItem
+import android.view.View
 import android.widget.*
 import androidx.appcompat.app.AlertDialog
 import androidx.appcompat.app.AppCompatActivity
@@ -205,9 +206,16 @@ class MainActivity : AppCompatActivity() {
                     withContext(Dispatchers.Main) {
                         Toast.makeText(this@MainActivity, getString(R.string.sync_status, downloaded, uploaded, deleted), Toast.LENGTH_LONG).show()
                     }
+                } else {
+                    withContext(Dispatchers.Main) {
+                        Toast.makeText(this@MainActivity, getString(R.string.sync_failed, "Error ${response.code()}"), Toast.LENGTH_LONG).show()
+                    }
                 }
             } catch (e: Exception) {
                 Log.e(TAG, "Sync failed", e)
+                withContext(Dispatchers.Main) {
+                    Toast.makeText(this@MainActivity, getString(R.string.sync_failed, e.localizedMessage ?: "Unknown error"), Toast.LENGTH_LONG).show()
+                }
             }
         }
     }
@@ -339,28 +347,73 @@ class MainActivity : AppCompatActivity() {
         val urlInput = dialogView.findViewById<EditText>(R.id.etBlogUrl)
         val userInput = dialogView.findViewById<EditText>(R.id.etUsername)
         val passInput = dialogView.findViewById<EditText>(R.id.etAppPassword)
+        val errorText = dialogView.findViewById<TextView>(R.id.tvSetupError)
+        val progressBar = dialogView.findViewById<ProgressBar>(R.id.pbSetup)
 
-        AlertDialog.Builder(this)
+        // Pre-fill if we have existing credentials
+        val (savedUrl, savedUser, savedPass) = storage.getCredentials()
+        urlInput.setText(savedUrl)
+        userInput.setText(savedUser)
+        passInput.setText(savedPass)
+
+        val dialog = AlertDialog.Builder(this)
             .setTitle(R.string.wordpress_setup_title)
             .setView(dialogView)
             .setCancelable(false)
-            .setPositiveButton(R.string.save_button) { _, _ ->
-                storage.saveCredentials(
-                    urlInput.text.toString().trim(),
-                    userInput.text.toString().trim(),
-                    passInput.text.toString().trim()
-                )
-                ApiClient.init(this)
-                Toast.makeText(this, R.string.setup_complete, Toast.LENGTH_SHORT).show()
-                syncDrafts()
+            .setPositiveButton(R.string.save_button, null) // Listener set later to prevent auto-dismiss
+            .create()
+
+        dialog.show()
+
+        dialog.getButton(AlertDialog.BUTTON_POSITIVE).setOnClickListener {
+            val url = urlInput.text.toString().trim()
+            val user = userInput.text.toString().trim()
+            val pass = passInput.text.toString().trim()
+
+            if (url.isEmpty() || user.isEmpty() || pass.isEmpty()) {
+                errorText.text = getString(R.string.setup_error_fields_required)
+                errorText.visibility = View.VISIBLE
+                return@setOnClickListener
             }
-            .show()
+
+            errorText.visibility = View.GONE
+            progressBar.visibility = View.VISIBLE
+            dialog.getButton(AlertDialog.BUTTON_POSITIVE).isEnabled = false
+
+            lifecycleScope.launch {
+                // Temporarily save credentials to test ApiClient
+                storage.saveCredentials(url, user, pass)
+                ApiClient.init(this@MainActivity)
+
+                val responseCode = withContext(Dispatchers.IO) {
+                    try {
+                        val response = ApiClient.service.getCurrentUser()
+                        response.code()
+                    } catch (e: Exception) {
+                        -1
+                    }
+                }
+
+                if (responseCode == 200) {
+                    Toast.makeText(this@MainActivity, R.string.setup_complete, Toast.LENGTH_SHORT).show()
+                    syncDrafts()
+                    dialog.dismiss()
+                } else {
+                    progressBar.visibility = View.GONE
+                    val errorMsg = if (responseCode == -1) "Network error" else "Error $responseCode"
+                    errorText.text = getString(R.string.setup_error_auth_failed_detail, errorMsg)
+                    errorText.visibility = View.VISIBLE
+                    dialog.getButton(AlertDialog.BUTTON_POSITIVE).isEnabled = true
+                }
+            }
+        }
     }
 
     private fun showHelpDialog() {
         val dialogView = LayoutInflater.from(this).inflate(R.layout.dialog_help, null)
         val tvAppVersion = dialogView.findViewById<TextView>(R.id.tvAppVersion)
         val btnCloseHelp = dialogView.findViewById<ImageButton>(R.id.btnCloseHelp)
+        val tvResetCredentials = dialogView.findViewById<TextView>(R.id.tvResetCredentials)
 
         try {
             val pInfo = packageManager.getPackageInfo(packageName, 0)
@@ -379,6 +432,11 @@ class MainActivity : AppCompatActivity() {
 
         btnCloseHelp.setOnClickListener {
             dialog.dismiss()
+        }
+
+        tvResetCredentials.setOnClickListener {
+            dialog.dismiss()
+            showSetupDialog()
         }
 
         dialog.show()

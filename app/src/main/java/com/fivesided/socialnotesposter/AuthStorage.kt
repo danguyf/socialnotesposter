@@ -1,9 +1,9 @@
 package com.fivesided.socialnotesposter
 
 import android.content.Context
-import android.util.Base64
 import androidx.security.crypto.EncryptedSharedPreferences
 import androidx.security.crypto.MasterKey
+import okhttp3.Credentials
 
 class AuthStorage(context: Context) {
 
@@ -20,18 +20,24 @@ class AuthStorage(context: Context) {
     )
 
     fun saveCredentials(url: String, username: String, appPass: String) {
+        // Strip spaces and ensure no trailing/leading whitespace
+        val cleanPass = appPass.trim().replace(" ", "")
+        val cleanUser = username.trim()
+        val cleanUrl = url.trim().removeSuffix("/")
+
         sharedPreferences.edit()
-            .putString("blog_url", url)
-            .putString("username", username)
-            .putString("app_pass", appPass)
-            .apply()
+            .putString("blog_url", cleanUrl)
+            .putString("username", cleanUser)
+            .putString("app_pass", cleanPass)
+            .commit()
     }
 
+    fun getBlogUrl(): String? = sharedPreferences.getString("blog_url", null)
+    fun getUsername(): String? = sharedPreferences.getString("username", null)
+    fun getAppPassword(): String? = sharedPreferences.getString("app_pass", null)
+
     fun getCredentials(): Triple<String?, String?, String?> {
-        val url = sharedPreferences.getString("blog_url", null)
-        val username = sharedPreferences.getString("username", null)
-        val appPass = sharedPreferences.getString("app_pass", null)
-        return Triple(url, username, appPass)
+        return Triple(getBlogUrl(), getUsername(), getAppPassword())
     }
 
     fun hasCredentials(): Boolean {
@@ -40,12 +46,13 @@ class AuthStorage(context: Context) {
     }
 
     fun getAuthHeader(): String {
-        val (_, username, appPass) = getCredentials()
-        val credentials = "$username:$appPass"
-        return "Basic " + Base64.encodeToString(credentials.toByteArray(), Base64.NO_WRAP)
+        val username = getUsername()
+        val appPass = getAppPassword()
+        if (username == null || appPass == null) return ""
+        return Credentials.basic(username, appPass)
     }
 
     fun clearCredentials() {
-        sharedPreferences.edit().clear().apply()
+        sharedPreferences.edit().clear().commit()
     }
 }

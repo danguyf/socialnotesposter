@@ -24,16 +24,28 @@ object ApiClient {
         authStorage = AuthStorage(context)
         val (blogUrl, _, _) = authStorage.getCredentials()
 
-        val baseUrl = if (blogUrl.isNullOrBlank()) {
+        var baseUrl = if (blogUrl.isNullOrBlank()) {
             "https://placeholder.com/"
         } else {
-            blogUrl.removeSuffix("/") + "/"
+            blogUrl.trim().removeSuffix("/") + "/"
+        }
+
+        if (!baseUrl.startsWith("http://") && !baseUrl.startsWith("https://")) {
+            baseUrl = "https://$baseUrl"
         }
 
         val client = OkHttpClient.Builder()
             .addInterceptor { chain ->
+                val authHeader = authStorage.getAuthHeader()
+
                 val request = chain.request().newBuilder()
-                    .addHeader("Authorization", authStorage.getAuthHeader())
+                    .addHeader("Authorization", authHeader)
+                    // Comprehensive multi-header workaround for LiteSpeed/Apache stripping
+                    .addHeader("X-WP-Authorization", authHeader)
+                    .addHeader("X-Authorization", authHeader)
+                    .addHeader("X-Http-Authorization", authHeader)
+                    .addHeader("Accept", "application/json")
+                    .addHeader("User-Agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36")
                     .build()
                 chain.proceed(request)
             }
@@ -59,6 +71,9 @@ object ApiClient {
 }
 
 interface WordPressApiService {
+    @GET("wp-json/wp/v2/users/me")
+    suspend fun getCurrentUser(): Response<Unit>
+
     @POST("wp-json/wp/v2/jetpack-social-note")
     suspend fun postNote(@Body note: SocialNoteRequest): Response<SocialNoteResponse>
 

@@ -9,6 +9,7 @@
     <string name="server_error_saved">Server error (%1$d). Saved to drafts.</string>
     <string name="offline_saved">Offline. Saved to drafts.</string>
     <string name="sync_status">Sync: %1$d down, %2$d up, %3$d deleted</string>
+    <string name="sync_failed">Sync failed: %s</string>
     <string name="draft_updated">Draft updated.</string>
     <string name="draft_saved">Draft saved.</string>
     <string name="wordpress_setup_title">WordPress Setup</string>
@@ -26,4 +27,8 @@
     <string name="long_press_delete_hint">(Long-press a draft to delete.)</string>
     <string name="version_format">Version: %s</string>
     <string name="version_unknown">Version unknown</string>
+    <string name="reset_wp_credentials">Reset WordPress credentials</string>
+    <string name="setup_error_fields_required">All fields are required.</string>
+    <string name="setup_error_auth_failed">Authentication failed.</string>
+    <string name="setup_error_auth_failed_detail">Authentication failed (%s). Check credentials or server config.</string>
 </resources>
