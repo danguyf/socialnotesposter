@@ -1,8 +1,11 @@
 package com.fivesided.socialnotesposter
 
 import android.content.Context
+import androidx.annotation.Keep
+import com.google.gson.Gson
 import com.google.gson.GsonBuilder
 import com.google.gson.JsonDeserializer
+import com.google.gson.annotations.SerializedName
 import okhttp3.OkHttpClient
 import retrofit2.Response
 import retrofit2.Retrofit
@@ -19,6 +22,7 @@ object ApiClient {
     private lateinit var authStorage: AuthStorage
 
     lateinit var service: WordPressApiService
+    lateinit var gson: Gson
 
     fun init(context: Context) {
         authStorage = AuthStorage(context)
@@ -45,18 +49,21 @@ object ApiClient {
                     .addHeader("X-Authorization", authHeader)
                     .addHeader("X-Http-Authorization", authHeader)
                     .addHeader("Accept", "application/json")
-                    .addHeader("User-Agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36")
+                    .addHeader("User-Agent", "SocialNotesPoster/1.1.4")
                     .build()
                 chain.proceed(request)
             }
             .build()
 
-        // WordPress returns dates in GMT. We parse them as UTC to avoid local timezone shifts.
-        val gson = GsonBuilder()
+        gson = GsonBuilder()
             .registerTypeAdapter(Date::class.java, JsonDeserializer { json, _, _ ->
-                val format = SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss", Locale.US)
-                format.timeZone = TimeZone.getTimeZone("UTC")
-                format.parse(json.asString)
+                try {
+                    val format = SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss", Locale.US)
+                    format.timeZone = TimeZone.getTimeZone("UTC")
+                    format.parse(json.asString)
+                } catch (e: Exception) {
+                    null
+                }
             })
             .create()
 
@@ -101,19 +108,22 @@ interface WordPressApiService {
     suspend fun deleteNote(@Path("id") id: Int, @Query("force") force: Boolean = true): Response<Unit>
 }
 
+@Keep
 data class SocialNoteRequest(
-    val content: String,
-    val status: String
+    @SerializedName("content") val content: String,
+    @SerializedName("status") val status: String
 )
 
+@Keep
 data class SocialNoteResponse(
-    val id: Int,
-    val content: Content,
-    val status: String,
-    val modified_gmt: Date
+    @SerializedName("id") val id: Int? = null,
+    @SerializedName("content") val content: NoteContent? = null,
+    @SerializedName("status") val status: String? = null,
+    @SerializedName("modified_gmt") val modified_gmt: Date? = null
 )
 
-data class Content(
-    val raw: String?,
-    val rendered: String
+@Keep
+data class NoteContent(
+    @SerializedName("raw") val raw: String? = null,
+    @SerializedName("rendered") val rendered: String? = null
 )

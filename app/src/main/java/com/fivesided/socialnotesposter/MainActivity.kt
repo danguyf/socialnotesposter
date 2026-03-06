@@ -30,7 +30,7 @@ class MainActivity : AppCompatActivity() {
 
     companion object {
         private const val TAG = "MainActivity"
-        private const val DEBUG_SYNC = true // Set to false to hide detailed error dialogs
+        private const val DEBUG_SYNC = false // Set to false to hide detailed error dialogs
     }
 
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -149,9 +149,34 @@ class MainActivity : AppCompatActivity() {
                 // Fetch drafts from WordPress with cache buster to force fresh results
                 val response = ApiClient.service.getDrafts(cb = System.currentTimeMillis())
                 if (response.isSuccessful) {
-                    val wpDrafts = response.body() ?: emptyList()
+                    // Safety: Treat body as untyped list first to avoid implicit ClassCastException
+                    val untypedBody = response.body() as? List<*> ?: emptyList<Any>()
+                    val wpDrafts = mutableListOf<SocialNoteResponse>()
+
+                    for (item in untypedBody) {
+                        try {
+                            if (item is SocialNoteResponse) {
+                                wpDrafts.add(item)
+                            } else if (item is Map<*, *>) {
+                                // Manual conversion from generic Map to our model object
+                                val json = ApiClient.gson.toJson(item)
+                                val converted = ApiClient.gson.fromJson(json, SocialNoteResponse::class.java)
+                                if (converted != null) wpDrafts.add(converted)
+                            }
+                        } catch (e: Exception) {
+                            Log.e(TAG, "Failed to resolve item to SocialNoteResponse", e)
+                        }
+                    }
+
+                    // Handle parsing failure with human-readable output
+                    if (untypedBody.isNotEmpty() && wpDrafts.isEmpty()) {
+                        val typeName = untypedBody[0]?.javaClass?.simpleName ?: "null"
+                        val sample = untypedBody[0].toString()
+                        throw Exception("Parsing error: Expected SocialNoteResponse but received $typeName.\n\nSample: $sample")
+                    }
+
                     val localDraftsAtStart = db.draftDao().getAllDrafts().first()
-                    val wpIdsInResponse = wpDrafts.map { it.id }.toSet()
+                    val wpIdsInResponse = wpDrafts.mapNotNull { it.id }.toSet()
 
                     // Phase 1: Handle Deletions
                     localDraftsAtStart.forEach { localDraft ->
@@ -168,16 +193,17 @@ class MainActivity : AppCompatActivity() {
                     // Phase 2: WP -> Local Sync
                     val localDraftsAfterDelete = db.draftDao().getAllDrafts().first()
                     wpDrafts.forEach { wpDraft ->
-                        val wpContent = stripHtml(wpDraft.content.raw ?: wpDraft.content.rendered)
-                        val wpModified = wpDraft.modified_gmt.time
-                        val localMatch = localDraftsAfterDelete.find { it.wpId == wpDraft.id }
+                        val wpId = wpDraft.id ?: return@forEach
+                        val wpContent = stripHtml(wpDraft.content?.raw ?: wpDraft.content?.rendered ?: "")
+                        val wpModified = wpDraft.modified_gmt?.time ?: 0L
+                        val localMatch = localDraftsAfterDelete.find { it.wpId == wpId }
 
                         if (localMatch == null) {
                             val contentMatch = localDraftsAfterDelete.find { it.wpId == null && it.content == wpContent }
                             if (contentMatch != null) {
-                                db.draftDao().update(contentMatch.copy(wpId = wpDraft.id, lastModified = wpModified))
+                                db.draftDao().update(contentMatch.copy(wpId = wpId, lastModified = wpModified))
                             } else {
-                                db.draftDao().insert(NoteDraft(wpId = wpDraft.id, content = wpContent, lastModified = wpModified))
+                                db.draftDao().insert(NoteDraft(wpId = wpId, content = wpContent, lastModified = wpModified))
                                 downloaded++
                             }
                         } else if (wpModified > localMatch.lastModified) {
@@ -192,13 +218,14 @@ class MainActivity : AppCompatActivity() {
                             val createResponse = ApiClient.service.postNote(SocialNoteRequest(localDraft.content, "draft"))
                             if (createResponse.isSuccessful) {
                                 createResponse.body()?.let {
-                                    db.draftDao().update(localDraft.copy(wpId = it.id, lastModified = it.modified_gmt.time))
+                                    db.draftDao().update(localDraft.copy(wpId = it.id, lastModified = it.modified_gmt?.time ?: 0L))
                                     uploaded++
                                 }
                             }
                         } else {
                             val wpMatch = wpDrafts.find { it.id == localDraft.wpId }
-                            if (wpMatch != null && localDraft.lastModified > (wpMatch.modified_gmt.time + 1000)) {
+                            val wpModified = wpMatch?.modified_gmt?.time ?: 0L
+                            if (wpMatch != null && localDraft.lastModified > (wpModified + 1000)) {
                                 ApiClient.service.updateNote(localDraft.wpId, SocialNoteRequest(localDraft.content, "draft"))
                             }
                         }
@@ -210,12 +237,16 @@ class MainActivity : AppCompatActivity() {
                 } else {
                     val statusCode = response.code()
                     if (DEBUG_SYNC) {
-                        val errorBody = response.errorBody()?.string() ?: "No error body"
-                        val message = response.message()
+                        val errorBodyString = try {
+                            response.errorBody()?.string() ?: "No error body"
+                        } catch (e: Exception) {
+                            "Error reading body: ${e.message}"
+                        }
+                        val message = response.message() ?: "No message"
                         withContext(Dispatchers.Main) {
                             AlertDialog.Builder(this@MainActivity)
                                 .setTitle("Sync Failed (HTTP $statusCode)")
-                                .setMessage("Message: $message\n\nBody: $errorBody")
+                                .setMessage("Message: $message\n\nBody: $errorBodyString")
                                 .setPositiveButton(android.R.string.ok, null)
                                 .show()
                         }
@@ -229,9 +260,12 @@ class MainActivity : AppCompatActivity() {
                 Log.e(TAG, "Sync failed", e)
                 if (DEBUG_SYNC) {
                     withContext(Dispatchers.Main) {
+                        // Display the readable message followed by the full stack trace for debugging
+                        val readableMsg = e.message ?: e.toString()
+                        val fullTrace = Log.getStackTraceString(e)
                         AlertDialog.Builder(this@MainActivity)
                             .setTitle("Sync Exception")
-                            .setMessage(e.toString())
+                            .setMessage("$readableMsg\n\n$fullTrace")
                             .setPositiveButton(android.R.string.ok, null)
                             .show()
                     }
@@ -314,7 +348,7 @@ class MainActivity : AppCompatActivity() {
                             val res = ApiClient.service.postNote(SocialNoteRequest(content, "draft"))
                             if (res.isSuccessful) {
                                 res.body()?.let {
-                                    db.draftDao().update(updatedDraft.copy(wpId = it.id, lastModified = it.modified_gmt.time))
+                                    db.draftDao().update(updatedDraft.copy(wpId = it.id, lastModified = it.modified_gmt?.time ?: 0L))
                                 }
                             }
                         }
@@ -338,7 +372,7 @@ class MainActivity : AppCompatActivity() {
                         val res = ApiClient.service.postNote(SocialNoteRequest(content, "draft"))
                         if (res.isSuccessful) {
                             res.body()?.let {
-                                db.draftDao().update(savedDraft.copy(wpId = it.id, lastModified = it.modified_gmt.time))
+                                db.draftDao().update(savedDraft.copy(wpId = it.id, lastModified = it.modified_gmt?.time ?: 0L))
                                 val updatedFromDb = db.draftDao().getAllDrafts().first().find { d -> d.id == savedDraft.id }
                                 if (updatedFromDb != null) {
                                     currentDraft = updatedFromDb
