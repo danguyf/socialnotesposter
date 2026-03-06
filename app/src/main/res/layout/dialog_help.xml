@@ -155,22 +155,17 @@
             android:layout_marginTop="16dp"
             app:layout_constraintTop_toBottomOf="@id/llHelpItems" />
 
-        <TextView
-            android:id="@+id/tvResetCredentials"
+        <com.google.android.material.button.MaterialButton
+            android:id="@+id/btnResetCredentials"
+            style="@style/Widget.MaterialComponents.Button.TextButton"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
-            android:text="@string/reset_wp_credentials"
-            android:textColor="@color/indigo_500"
-            android:textSize="14sp"
             android:layout_marginTop="12dp"
-            android:padding="8dp"
-            android:background="?attr/selectableItemBackground"
-            android:clickable="true"
-            android:focusable="true"
-            app:layout_constraintTop_toBottomOf="@id/dividerBottom"
-            app:layout_constraintStart_toStartOf="parent"
+            android:text="@string/reset_wp_credentials"
+            app:layout_constraintBottom_toBottomOf="parent"
             app:layout_constraintEnd_toEndOf="parent"
-            app:layout_constraintBottom_toBottomOf="parent" />
+            app:layout_constraintStart_toStartOf="parent"
+            app:layout_constraintTop_toBottomOf="@id/dividerBottom" />
 
     </androidx.constraintlayout.widget.ConstraintLayout>
 

@@ -413,7 +413,7 @@ class MainActivity : AppCompatActivity() {
         val dialogView = LayoutInflater.from(this).inflate(R.layout.dialog_help, null)
         val tvAppVersion = dialogView.findViewById<TextView>(R.id.tvAppVersion)
         val btnCloseHelp = dialogView.findViewById<ImageButton>(R.id.btnCloseHelp)
-        val tvResetCredentials = dialogView.findViewById<TextView>(R.id.tvResetCredentials)
+        val btnResetCredentials = dialogView.findViewById<Button>(R.id.btnResetCredentials)
 
         try {
             val pInfo = packageManager.getPackageInfo(packageName, 0)
@@ -434,7 +434,7 @@ class MainActivity : AppCompatActivity() {
             dialog.dismiss()
         }
 
-        tvResetCredentials.setOnClickListener {
+        btnResetCredentials.setOnClickListener {
             dialog.dismiss()
             showSetupDialog()
         }
