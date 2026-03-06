@@ -30,6 +30,7 @@ class MainActivity : AppCompatActivity() {
 
     companion object {
         private const val TAG = "MainActivity"
+        private const val DEBUG_SYNC = true // Set to false to hide detailed error dialogs
     }
 
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -207,14 +208,37 @@ class MainActivity : AppCompatActivity() {
                         Toast.makeText(this@MainActivity, getString(R.string.sync_status, downloaded, uploaded, deleted), Toast.LENGTH_LONG).show()
                     }
                 } else {
-                    withContext(Dispatchers.Main) {
-                        Toast.makeText(this@MainActivity, getString(R.string.sync_failed, "Error ${response.code()}"), Toast.LENGTH_LONG).show()
+                    val statusCode = response.code()
+                    if (DEBUG_SYNC) {
+                        val errorBody = response.errorBody()?.string() ?: "No error body"
+                        val message = response.message()
+                        withContext(Dispatchers.Main) {
+                            AlertDialog.Builder(this@MainActivity)
+                                .setTitle("Sync Failed (HTTP $statusCode)")
+                                .setMessage("Message: $message\n\nBody: $errorBody")
+                                .setPositiveButton(android.R.string.ok, null)
+                                .show()
+                        }
+                    } else {
+                        withContext(Dispatchers.Main) {
+                            Toast.makeText(this@MainActivity, getString(R.string.sync_failed, "Error $statusCode"), Toast.LENGTH_LONG).show()
+                        }
                     }
                 }
             } catch (e: Exception) {
                 Log.e(TAG, "Sync failed", e)
-                withContext(Dispatchers.Main) {
-                    Toast.makeText(this@MainActivity, getString(R.string.sync_failed, e.localizedMessage ?: "Unknown error"), Toast.LENGTH_LONG).show()
+                if (DEBUG_SYNC) {
+                    withContext(Dispatchers.Main) {
+                        AlertDialog.Builder(this@MainActivity)
+                            .setTitle("Sync Exception")
+                            .setMessage(e.toString())
+                            .setPositiveButton(android.R.string.ok, null)
+                            .show()
+                    }
+                } else {
+                    withContext(Dispatchers.Main) {
+                        Toast.makeText(this@MainActivity, getString(R.string.sync_failed, e.localizedMessage ?: "Unknown error"), Toast.LENGTH_LONG).show()
+                    }
                 }
             }
         }
